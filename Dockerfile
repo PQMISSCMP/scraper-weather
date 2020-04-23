@@ -1,16 +1,8 @@
 
 FROM node:alpine
-
-RUN apk add --update \
-  git \
-  openssh-client
-
-WORKDIR /usr/app
-
+WORKDIR /app
 COPY ./package.json ./
-
+RUN npm install typescript -g
 RUN npm install --production
-
-COPY ./ ./
-
-CMD ["npm","start"]
+COPY . .
+CMD ["npm","run", "start:prod"]

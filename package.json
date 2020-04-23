@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "concurrently \"ts-node-dev index.ts\" \"ts-node src/core/bash.ts\""
+    "start": "concurrently \"ts-node-dev index.ts\" \"ts-node src/core/bash.ts\"",
+    "start:prod": "concurrently \"node -r ts-node/register --max-old-space-size=6144 index.ts\" \"ts-node src/casos/bash.ts\""
   },
   "keywords": [
     "Web scraping"
