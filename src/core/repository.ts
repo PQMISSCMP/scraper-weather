@@ -1,0 +1,108 @@
+import cheerio from "cheerio";
+import { CiudadesModel, PronosticoModel } from "./model";
+import { Pool, Client } from "pg";
+const axios = require("axios").default;
+
+// const pool = new Pool({
+//     user: process.env.DB_USER,
+//     password: process.env.DB_PASS,
+//     host: process.env.DB_HOST,
+//     database: process.env.DB_NAME,
+//     port: process.env.DB_PORT
+// });
+
+// DB_NAME=test
+// DB_SQUEMA=test125
+// DB_PORT=30410
+// DB_HOST=srv.cimapm.com
+// DB_USER=test125
+// DB_PASS=test125
+
+
+const pool = new Pool({
+    user: 'test125',
+    password: 'test125',
+    host: 'srv.cimapm.com',
+    database: 'test',
+    port: 30410
+});
+
+export const GOscraperWeather = async () => {
+
+    try {
+        const ciudades = await getLinksToScraping();
+        await truncatePronosticos();
+
+        for (const ciudad of ciudades) {
+            const urlToScrap = `https://www.accuweather.com/en/cl/${ciudad.city}/${ciudad.id}/daily-weather-forecast/${ciudad.id}`;
+            console.log(`obteniendo html de ${ciudad.city}`);
+            const { data: html } = await axios.get(urlToScrap);
+            const selector = cheerio.load(html);
+            const items = selector('.content-module .non-ad > a').toArray();
+            items.slice(0, 7).map(item => {
+                const $item = selector(item);
+                const pronostico: PronosticoModel = {
+                    id: ciudad.id,
+                    fecha: $item.find('.date > .sub').remove().text().replace(/[\n\t\r]/g, ""),
+                    minima: Number.parseInt($item.find('.temps > .low').text().replace(/[/°]/g, "").trim()),
+                    maxima: Number.parseInt($item.find('.temps > .high').text().replace(/[°]/g, "").trim()),
+                };
+                
+                insertNewPronostico(pronostico);
+            })
+        }
+
+        pool.end();
+
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+const truncatePronosticos = async (): Promise<boolean> => {
+    console.log('Intentando truncar pronosticos...');
+    try {
+        pool.query("truncate table public.scrap_pronosticos");
+        return true;
+    } catch (error) {
+        throw new Error('error al truncar pronosticos');
+    }
+}
+
+
+const insertNewPronostico = async (pronostico: PronosticoModel) => {
+    const text = 'INSERT INTO public.scrap_pronosticos("idCiudad", "fecha", "minima", "maxima") VALUES($1, $2, $3, $4) RETURNING *'
+    const values = [pronostico.id, pronostico.fecha, pronostico.minima, pronostico.maxima]
+    const { rows } = await pool.query(text, values);
+    console.log(rows);
+
+}
+
+const getLinksToScraping = async (): Promise<CiudadesModel[]> => {
+    console.log('leyendo links...');
+    try {
+        const { rows } = await pool.query("SELECT id, city from public.scrap_links");
+        console.log('links obtenidos ;)');
+        return rows;
+    } catch (error) {
+        throw Error('Error al obtener links');
+    }
+}
+
+
+
+export const obtenerPronosticoByIdCiudad = async (idCiudad: number) => {
+    try {
+        // console.log(id);
+        const query =  {
+            text: 'SELECT "fecha", "minima", "maxima" from public.scrap_pronosticos where "idCiudad" = $1',
+            values: [idCiudad]
+        }
+        // const sql = 'SELECT fecha, minima, maxima from public.scrap_pronosticos where idCiudad = $1'
+        // const values = [idCiudad]
+        const { rows } = await pool.query(query);
+        return rows;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+}
