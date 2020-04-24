@@ -1,10 +1,7 @@
-export interface CiudadesModel {
-    id: number;
-    city: string;
-}
 
 export interface PronosticoModel {
     id: number;
+    nombre: string;
     fecha: string;
     minima: number;
     maxima: number;
