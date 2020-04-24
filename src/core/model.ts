@@ -3,7 +3,6 @@ export interface CiudadesModel {
     city: string;
 }
 
-
 export interface PronosticoModel {
     id: number;
     fecha: string;
